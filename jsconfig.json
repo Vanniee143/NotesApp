@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["app/*"],
+      "@components/*": ["app/components/*"],
+      "@screens/*": ["app/screens/*"],
+      "@constants/*": ["app/constants/*"],
+      "@hooks/*": ["app/hooks/*"],
+      "@storage/*": ["app/storage/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+} 
