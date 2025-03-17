@@ -50,4 +50,13 @@ export const deleteNote = async (noteId) => {
     console.error('Error deleting note:', error);
     return false;
   }
-}; 
+};
+
+const storage = {
+  getNotes,
+  saveNote,
+  deleteNote,
+  // ... other functions
+};
+
+export default storage; 

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getNotes } from '@/storage';
 import { IconButton } from 'react-native-paper';
+import * as Notifications from 'expo-notifications';
 
 export default function RemindersScreen() {
   const [reminders, setReminders] = useState([]);
@@ -12,6 +13,26 @@ export default function RemindersScreen() {
   useFocusEffect(
     React.useCallback(() => {
       loadReminders();
+      
+      // Only set up notification listener if notifications are available
+      let notificationSubscription;
+      if (Notifications.addNotificationResponseReceivedListener) {
+        notificationSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+          const noteId = response.notification.request.content.data.noteId;
+          if (noteId) {
+            router.push({
+              pathname: '/note/display/[id]',
+              params: { id: noteId }
+            });
+          }
+        });
+      }
+
+      return () => {
+        if (notificationSubscription) {
+          notificationSubscription.remove();
+        }
+      };
     }, [])
   );
 

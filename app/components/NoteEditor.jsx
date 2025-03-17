@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, StyleSheet, ScrollView, Switch, Text, Image, Modal } from 'react-native';
+import { View, TextInput, StyleSheet, ScrollView, Switch, Text, Image, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
-import { IconButton } from 'react-native-paper';
-import { saveNote, getNotes } from '@/storage';
+import { Button, IconButton } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
+import { saveNote } from '@/storage';
 import ReminderPicker from './ReminderPicker';
 
 // Configure notifications
@@ -16,14 +16,14 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const NoteEditor = ({ noteId }) => {
+const NoteEditor = ({ noteId, initialNote }) => {
   const router = useRouter();
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [image, setImage] = useState(null);
-  const [isPriority, setIsPriority] = useState(false);
-  const [category, setCategory] = useState('');
-  const [reminder, setReminder] = useState(null);
+  const [title, setTitle] = useState(initialNote?.title || '');
+  const [content, setContent] = useState(initialNote?.content || '');
+  const [image, setImage] = useState(initialNote?.image || null);
+  const [category, setCategory] = useState(initialNote?.category || '');
+  const [isPriority, setIsPriority] = useState(initialNote?.isPriority || false);
+  const [reminder, setReminder] = useState(initialNote?.reminder ? new Date(initialNote.reminder) : null);
   const [showReminderPicker, setShowReminderPicker] = useState(false);
 
   useEffect(() => {
@@ -42,6 +42,21 @@ const NoteEditor = ({ noteId }) => {
     })();
   }, []);
 
+  // Set up notification handler
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const noteId = response.notification.request.content.data.noteId;
+      if (noteId) {
+        router.push({
+          pathname: '/note/display/[id]',
+          params: { id: noteId }
+        });
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
   const loadNote = async () => {
     const notes = await getNotes();
     const note = notes.find(n => n.id === noteId);
@@ -57,25 +72,21 @@ const NoteEditor = ({ noteId }) => {
 
   const handleSetReminder = async (date) => {
     try {
-      // Ensure the date is in the future
-      if (date.getTime() <= Date.now()) {
-        alert('Please select a future date and time');
-        return;
+      if (noteId) {
+        await Notifications.cancelScheduledNotificationAsync(noteId);
       }
 
-      const trigger = new Date(date);
-      await Notifications.scheduleNotificationAsync({
+      const identifier = await Notifications.scheduleNotificationAsync({
         content: {
           title: title || 'Note Reminder',
           body: content?.substring(0, 50) || 'Check your note',
-          data: { noteId },
+          data: { noteId: noteId || Date.now().toString() },
         },
-        trigger,
+        trigger: date,
       });
       
       setReminder(date);
       setShowReminderPicker(false);
-      alert('Reminder set successfully!');
     } catch (error) {
       console.error('Error setting reminder:', error);
       alert('Failed to set reminder');
@@ -83,28 +94,27 @@ const NoteEditor = ({ noteId }) => {
   };
 
   const handleSave = async () => {
-    const newNote = {
-      id: noteId || Date.now().toString(),
-      title,
-      content,
-      image,
-      isPriority,
-      category,
-      createdAt: Date.now(),
-      reminder: reminder ? reminder.toISOString() : null,
-    };
-    await saveNote(newNote);
-    router.back();
+    try {
+      const newNote = {
+        id: noteId || Date.now().toString(),
+        title,
+        content,
+        image,
+        category,
+        isPriority,
+        reminder: reminder?.toISOString(),
+        createdAt: Date.now(),
+      };
+      await saveNote(newNote);
+      router.back();
+    } catch (error) {
+      console.error('Error saving note:', error);
+      alert('Failed to save note');
+    }
   };
 
   const pickImage = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        alert('Sorry, we need camera roll permissions to make this work!');
-        return;
-      }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -117,7 +127,7 @@ const NoteEditor = ({ noteId }) => {
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      alert('Error picking image');
+      alert('Failed to pick image');
     }
   };
 
@@ -129,6 +139,7 @@ const NoteEditor = ({ noteId }) => {
         value={title}
         onChangeText={setTitle}
       />
+
       <TextInput
         style={[styles.input, styles.contentInput]}
         placeholder="Content"
@@ -136,27 +147,31 @@ const NoteEditor = ({ noteId }) => {
         onChangeText={setContent}
         multiline
       />
+
       {image && (
         <View style={styles.imageContainer}>
-          <Image 
-            source={{ uri: image }} 
-            style={styles.imagePreview}
-            resizeMode="cover"
-          />
-          <Button 
-            title="Remove Image" 
-            onPress={() => setImage(null)} 
-            color="red"
+          <Image source={{ uri: image }} style={styles.imagePreview} />
+          <IconButton
+            icon="close"
+            size={24}
+            onPress={() => setImage(null)}
           />
         </View>
       )}
-      <Button title="Pick an image" onPress={pickImage} />
-      
+
+      <Button
+        mode="outlined"
+        onPress={pickImage}
+        style={styles.button}
+      >
+        Pick an image
+      </Button>
+
       <View style={styles.formGroup}>
         <Text style={styles.label}>Category:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter category name"
+          placeholder="Enter category"
           value={category}
           onChangeText={setCategory}
         />
@@ -172,22 +187,26 @@ const NoteEditor = ({ noteId }) => {
 
       <View style={styles.reminderSection}>
         <Button
-          title={reminder ? `Edit Reminder (${new Date(reminder).toLocaleString()})` : 'Set Reminder'}
+          mode="outlined"
+          icon="clock"
           onPress={() => setShowReminderPicker(true)}
-          color="#007AFF"
-        />
+        >
+          {reminder ? 'Edit Reminder' : 'Set Reminder'}
+        </Button>
         {reminder && (
           <View style={styles.reminderInfo}>
             <Text style={styles.reminderText}>
-              Reminder scheduled for: {new Date(reminder).toLocaleString()}
+              Reminder set for: {reminder.toLocaleString()}
             </Text>
-            <Button
-              title="Remove Reminder"
+            <IconButton
+              icon="close"
+              size={20}
               onPress={() => {
                 setReminder(null);
-                alert('Reminder removed');
+                if (noteId) {
+                  Notifications.cancelScheduledNotificationAsync(noteId);
+                }
               }}
-              color="red"
             />
           </View>
         )}
@@ -203,11 +222,18 @@ const NoteEditor = ({ noteId }) => {
           <ReminderPicker
             onSetReminder={handleSetReminder}
             onCancel={() => setShowReminderPicker(false)}
+            initialDate={reminder || new Date()}
           />
         </View>
       </Modal>
 
-      <Button title="Save Note" onPress={handleSave} />
+      <Button
+        mode="contained"
+        onPress={handleSave}
+        style={styles.saveButton}
+      >
+        Save Note
+      </Button>
     </ScrollView>
   );
 };
@@ -238,31 +264,31 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     marginVertical: 10,
+    alignItems: 'center',
   },
   imagePreview: {
     width: '100%',
     height: 200,
-    marginBottom: 10,
     borderRadius: 4,
   },
+  button: {
+    marginVertical: 10,
+  },
+  saveButton: {
+    marginTop: 16,
+    marginBottom: 32,
+  },
   reminderSection: {
-    marginVertical: 15,
-    backgroundColor: '#f8f8f8',
-    padding: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    marginVertical: 10,
   },
   reminderInfo: {
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
   },
   reminderText: {
-    marginBottom: 10,
-    color: '#007AFF',
-    fontSize: 14,
+    flex: 1,
+    color: '#666',
   },
   modalContainer: {
     flex: 1,

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, Platform, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Platform, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button } from 'react-native-paper';
 
-const ReminderPicker = ({ onSetReminder, onCancel }) => {
-  const [date, setDate] = useState(new Date());
+const ReminderPicker = ({ onSetReminder, onCancel, initialDate }) => {
+  const [date, setDate] = useState(initialDate || new Date());
   const [show, setShow] = useState(false);
   const [mode, setMode] = useState('date');
   const [tempDate, setTempDate] = useState(new Date());
@@ -46,31 +46,28 @@ const ReminderPicker = ({ onSetReminder, onCancel }) => {
     setMode(currentMode);
   };
 
-  const handleConfirm = (finalDate = date) => {
-    if (finalDate.getTime() <= Date.now()) {
+  const handleConfirm = (selectedDate) => {
+    const reminderDate = selectedDate || date;
+    if (reminderDate.getTime() <= Date.now()) {
       alert('Please select a future date and time');
       return;
     }
-    onSetReminder(finalDate);
+    onSetReminder(reminderDate);
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Set Reminder</Text>
-      
       <View style={styles.buttonContainer}>
-        <Button 
-          onPress={() => showMode('date')} 
-          mode="contained"
-          style={styles.button}
+        <Button
+          mode="outlined"
+          onPress={() => showMode('date')}
         >
           Select Date
         </Button>
         {Platform.OS === 'ios' && (
-          <Button 
-            onPress={() => showMode('time')} 
-            mode="contained"
-            style={styles.button}
+          <Button
+            mode="outlined"
+            onPress={() => showMode('time')}
           >
             Select Time
           </Button>
@@ -89,17 +86,20 @@ const ReminderPicker = ({ onSetReminder, onCancel }) => {
           is24Hour={true}
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={onChange}
-          minimumDate={new Date()}
         />
       )}
 
       <View style={styles.actionButtons}>
-        {Platform.OS === 'ios' && (
-          <Button onPress={() => handleConfirm()} mode="contained">
-            Confirm
-          </Button>
-        )}
-        <Button onPress={onCancel} mode="outlined">
+        <Button
+          mode="contained"
+          onPress={() => handleConfirm(date)}
+        >
+          Set Reminder
+        </Button>
+        <Button
+          mode="outlined"
+          onPress={onCancel}
+        >
           Cancel
         </Button>
       </View>
@@ -129,15 +129,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginTop: 20,
-  },
-  header: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  button: {
-    marginHorizontal: 5,
   },
 });
 
