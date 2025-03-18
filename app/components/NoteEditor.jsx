@@ -177,11 +177,14 @@ const NoteEditor = ({ noteId, initialNote }) => {
         />
       </View>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Priority:</Text>
+      <View style={styles.priorityContainer}>
+        <Text style={styles.label}>Priority Note</Text>
         <Switch
           value={isPriority}
-          onValueChange={setIsPriority}
+          onValueChange={(value) => {
+            setIsPriority(value);
+          }}
+          color="#ff4444"
         />
       </View>
 
@@ -296,6 +299,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 20,
+  },
+  priorityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  label: {
+    fontSize: 16,
+    color: '#333',
   },
 });
 

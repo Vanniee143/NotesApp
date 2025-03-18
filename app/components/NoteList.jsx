@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, FlatList, TouchableOpacity, Text, Image, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { deleteNote } from '@/storage';
+import { IconButton } from 'react-native-paper';
 
 const NoteList = ({ notes, onRefresh }) => {
   const router = useRouter();
@@ -45,34 +46,44 @@ const NoteList = ({ notes, onRefresh }) => {
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.noteItem}
+    <TouchableOpacity
+      style={[styles.noteItem, item.isPriority && styles.priorityNote]}
       onPress={() => router.push({
         pathname: '/note/display/[id]',
         params: { id: item.id }
       })}
       onLongPress={() => confirmDelete(item.id)} // Long press to delete
     >
-      {item.image && (
-        <Image 
-          source={{ uri: item.image }} 
-          style={styles.noteImage}
-          resizeMode="cover"
-        />
-      )}
       <View style={styles.noteContent}>
-        <Text style={styles.noteTitle}>{item.title || 'Untitled'}</Text>
-        <Text style={styles.notePreview} numberOfLines={2}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>{item.title || 'Untitled'}</Text>
+          {item.isPriority && (
+            <IconButton
+              icon="star"
+              size={20}
+              color="#ff4444"
+              style={styles.priorityIcon}
+            />
+          )}
+        </View>
+        
+        {item.image && (
+          <Image 
+            source={{ uri: item.image }} 
+            style={styles.noteImage}
+            resizeMode="cover"
+          />
+        )}
+        
+        <Text style={styles.preview} numberOfLines={2}>
           {item.content || 'No content'}
         </Text>
+        
         <View style={styles.noteFooter}>
-          {item.isPriority && (
-            <Text style={styles.priorityTag}>Priority</Text>
-          )}
           {item.category && (
-            <Text style={styles.categoryTag}>{item.category}</Text>
+            <Text style={styles.category}>{item.category}</Text>
           )}
-          <Text style={styles.dateText}>
+          <Text style={styles.date}>
             {formatDate(item.createdAt)}
           </Text>
         </View>
@@ -112,42 +123,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  noteImage: {
-    width: '100%',
-    height: 200,
+  priorityNote: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff4444',
   },
   noteContent: {
     padding: 16,
   },
-  noteTitle: {
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 8,
+    flex: 1,
   },
-  notePreview: {
-    fontSize: 14,
+  priorityIcon: {
+    margin: 0,
+  },
+  preview: {
     color: '#666',
-    marginBottom: 8,
+    marginTop: 8,
+  },
+  noteImage: {
+    width: '100%',
+    height: 200,
   },
   noteFooter: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
   },
-  priorityTag: {
-    color: '#ff4444',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  categoryTag: {
-    color: '#2196F3',
+  category: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
     fontSize: 12,
   },
-  dateText: {
+  date: {
     color: '#999',
     fontSize: 12,
-    marginLeft: 'auto',
   },
 });
 

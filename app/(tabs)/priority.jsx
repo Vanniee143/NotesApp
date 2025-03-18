@@ -1,35 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { Text } from 'react-native-paper';
 import { getNotes } from '@/storage';
-import PriorityList from '@/components/PriorityList';
+import NoteList from '@/components/NoteList';
 
 export default function PriorityScreen() {
-  const router = useRouter();
   const [priorityNotes, setPriorityNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  useEffect(() => {
-    loadPriorityNotes();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadPriorityNotes();
+    }, [])
+  );
 
   const loadPriorityNotes = async () => {
     try {
-      const notes = await getNotes();
-      const priority = notes.filter(note => note.isPriority);
+      setLoading(true);
+      const allNotes = await getNotes();
+      // Filter notes where isPriority is true and sort by creation date
+      const priority = allNotes
+        .filter(note => note.isPriority)
+        .sort((a, b) => b.createdAt - a.createdAt);
       setPriorityNotes(priority);
     } catch (error) {
       console.error('Error loading priority notes:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      {priorityNotes.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No priority notes found</Text>
+      {loading ? (
+        <View style={styles.centerContent}>
+          <Text>Loading...</Text>
+        </View>
+      ) : priorityNotes.length === 0 ? (
+        <View style={styles.centerContent}>
+          <Text>No priority notes found</Text>
         </View>
       ) : (
-        <PriorityList 
+        <NoteList 
           notes={priorityNotes}
           onRefresh={loadPriorityNotes}
         />
@@ -43,13 +57,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  emptyContainer: {
+  centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
   },
 }); 
