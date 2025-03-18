@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Button, IconButton } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
-import { saveNote } from '@/storage';
+import { saveNote, getNotes } from '@/storage';
 import ReminderPicker from './ReminderPicker';
 
 // Configure notifications
@@ -27,10 +27,17 @@ const NoteEditor = ({ noteId, initialNote }) => {
   const [showReminderPicker, setShowReminderPicker] = useState(false);
 
   useEffect(() => {
-    if (noteId) {
+    if (noteId && !initialNote) {
       loadNote();
+    } else if (initialNote) {
+      setTitle(initialNote.title || '');
+      setContent(initialNote.content || '');
+      setImage(initialNote.image || null);
+      setCategory(initialNote.category || '');
+      setIsPriority(initialNote.isPriority || false);
+      setReminder(initialNote.reminder ? new Date(initialNote.reminder) : null);
     }
-  }, [noteId]);
+  }, [noteId, initialNote]);
 
   // Request notification permissions
   useEffect(() => {
@@ -58,15 +65,20 @@ const NoteEditor = ({ noteId, initialNote }) => {
   }, []);
 
   const loadNote = async () => {
-    const notes = await getNotes();
-    const note = notes.find(n => n.id === noteId);
-    if (note) {
-      setTitle(note.title);
-      setContent(note.content);
-      setImage(note.image);
-      setIsPriority(note.isPriority);
-      setCategory(note.category);
-      setReminder(note.reminder ? new Date(note.reminder) : null);
+    try {
+      const notes = await getNotes();
+      const note = notes.find(n => n.id === noteId);
+      if (note) {
+        setTitle(note.title || '');
+        setContent(note.content || '');
+        setImage(note.image || null);
+        setCategory(note.category || '');
+        setIsPriority(note.isPriority || false);
+        setReminder(note.reminder ? new Date(note.reminder) : null);
+      }
+    } catch (error) {
+      console.error('Error loading note:', error);
+      alert('Failed to load note');
     }
   };
 
