@@ -15,4 +15,6 @@ export function ThemedText({ style, ...props }) {
       {...props} 
     />
   );
-} 
+}
+
+export default ThemedText; 

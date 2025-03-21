@@ -116,12 +116,18 @@ const NoteEditor = ({ noteId, initialNote }) => {
         isPriority,
         reminder: reminder?.toISOString(),
         createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
+      
       await saveNote(newNote);
-      router.back();
+      // Use a small delay to ensure the save is complete before navigation
+      setTimeout(() => {
+        alert('Note saved successfully!');
+        router.back();
+      }, 100);
     } catch (error) {
       console.error('Error saving note:', error);
-      alert('Failed to save note');
+      alert('Failed to save note. Please try again.');
     }
   };
 

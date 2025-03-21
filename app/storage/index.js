@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const NOTES_STORAGE_KEY = 'NOTES_STORAGE_KEY';
+const NOTES_STORAGE_KEY = '@notes';
 
 export const getNotes = async () => {
   try {
     const notesJson = await AsyncStorage.getItem(NOTES_STORAGE_KEY);
     return notesJson ? JSON.parse(notesJson) : [];
   } catch (error) {
-    console.error('Error getting notes:', error);
+    console.error('Error loading notes:', error);
     return [];
   }
 };
@@ -15,11 +15,11 @@ export const getNotes = async () => {
 export const saveNote = async (note) => {
   try {
     const notes = await getNotes();
-    const existingNoteIndex = notes.findIndex(n => n.id === note.id);
+    const noteIndex = notes.findIndex(n => n.id === note.id);
     
-    if (existingNoteIndex >= 0) {
-      notes[existingNoteIndex] = {
-        ...notes[existingNoteIndex],
+    if (noteIndex >= 0) {
+      notes[noteIndex] = {
+        ...notes[noteIndex],
         ...note,
         updatedAt: Date.now(),
       };
@@ -30,7 +30,7 @@ export const saveNote = async (note) => {
         updatedAt: Date.now(),
       });
     }
-
+    
     await AsyncStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
     return true;
   } catch (error) {
@@ -42,8 +42,8 @@ export const saveNote = async (note) => {
 export const deleteNote = async (noteId) => {
   try {
     const notes = await getNotes();
-    const updatedNotes = notes.filter(note => note.id !== noteId);
-    await AsyncStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(updatedNotes));
+    const filteredNotes = notes.filter(note => note.id !== noteId);
+    await AsyncStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(filteredNotes));
     return true;
   } catch (error) {
     console.error('Error deleting note:', error);
@@ -51,8 +51,10 @@ export const deleteNote = async (noteId) => {
   }
 };
 
-export default {
+const storage = {
   getNotes,
   saveNote,
   deleteNote,
-}; 
+};
+
+export default storage; 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Text } from 'react-native-paper';
@@ -9,28 +9,48 @@ export default function PriorityScreen() {
   const [priorityNotes, setPriorityNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const isFirstRender = useRef(true);
+  const isMounted = useRef(true);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      loadPriorityNotes();
-    }, [])
-  );
-
-  const loadPriorityNotes = async () => {
+  const loadPriorityNotes = useCallback(async () => {
+    if (!isMounted.current) return;
+    
     try {
-      setLoading(true);
+      if (isFirstRender.current) {
+        setLoading(true);
+      }
+      
       const allNotes = await getNotes();
-      // Filter notes where isPriority is true and sort by creation date
-      const priority = allNotes
-        .filter(note => note.isPriority)
-        .sort((a, b) => b.createdAt - a.createdAt);
-      setPriorityNotes(priority);
+      
+      // Only update state if component is still mounted
+      if (isMounted.current) {
+        // Filter notes where isPriority is true and sort by creation date
+        const priority = allNotes
+          .filter(note => note.isPriority)
+          .sort((a, b) => b.createdAt - a.createdAt);
+        
+        setPriorityNotes(priority);
+        isFirstRender.current = false;
+      }
     } catch (error) {
       console.error('Error loading priority notes:', error);
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      isMounted.current = true;
+      loadPriorityNotes();
+      
+      return () => {
+        isMounted.current = false;
+      };
+    }, [loadPriorityNotes])
+  );
 
   return (
     <View style={styles.container}>

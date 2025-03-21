@@ -1,36 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { View, FlatList, TouchableOpacity, Text, Image, StyleSheet, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { deleteNote } from '@/storage';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { deleteNote, getNotes } from '@/storage';
 import { IconButton } from 'react-native-paper';
 
-const NoteList = ({ notes, onRefresh }) => {
+// Memoize the note item to prevent unnecessary re-renders
+const NoteItem = memo(({ item, onPress, onLongPress, formatDate }) => (
+  <TouchableOpacity
+    style={[styles.noteItem, item.isPriority && styles.priorityNote]}
+    onPress={onPress}
+    onLongPress={onLongPress}
+  >
+    <View style={styles.noteContent}>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>{item.title || 'Untitled'}</Text>
+        {item.isPriority && (
+          <IconButton
+            icon="star"
+            size={20}
+            color="#ff4444"
+            style={styles.priorityIcon}
+          />
+        )}
+      </View>
+      
+      {item.image && (
+        <Image 
+          source={{ uri: item.image }} 
+          style={styles.noteImage}
+          resizeMode="cover"
+        />
+      )}
+      
+      <Text style={styles.preview} numberOfLines={2}>
+        {item.content || 'No content'}
+      </Text>
+      
+      <View style={styles.noteFooter}>
+        {item.category && (
+          <Text style={styles.category}>{item.category}</Text>
+        )}
+        <Text style={styles.date}>
+          {formatDate(item.createdAt)}
+        </Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+));
+
+const NoteList = ({ notes: initialNotes, onRefresh }) => {
   const router = useRouter();
-  const [noteList, setNoteList] = useState(notes);
+  const [noteList, setNoteList] = useState(initialNotes || []);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Format date is memoized to prevent recreating on each render
+  const formatDate = useCallback((timestamp) => {
+    return new Date(timestamp).toLocaleDateString();
+  }, []);
 
   useEffect(() => {
-    setNoteList(notes);
-  }, [notes]);
+    if (initialNotes) {
+      setNoteList(initialNotes);
+    }
+  }, [initialNotes]);
 
-  const formatDate = (timestamp) => {
-    return new Date(timestamp).toLocaleDateString();
-  };
-
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     try {
       await deleteNote(id);
-      const updatedNotes = noteList.filter(note => note.id !== id);
-      setNoteList(updatedNotes);
+      setNoteList(prevNotes => prevNotes.filter(note => note.id !== id));
       if (onRefresh) {
-        onRefresh(); // Refresh parent component's list
+        onRefresh();
       }
     } catch (error) {
       console.error('Error deleting note:', error);
       Alert.alert('Error', 'Failed to delete note');
     }
-  };
+  }, [onRefresh]);
 
-  const confirmDelete = (id) => {
+  const confirmDelete = useCallback((id) => {
     Alert.alert(
       'Delete Note',
       'Are you sure you want to delete this note?',
@@ -43,63 +90,58 @@ const NoteList = ({ notes, onRefresh }) => {
         },
       ]
     );
-  };
+  }, [handleDelete]);
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.noteItem, item.isPriority && styles.priorityNote]}
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return; // Prevent multiple refresh calls
+    
+    setIsRefreshing(true);
+    try {
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        const updatedNotes = await getNotes();
+        setNoteList(updatedNotes);
+      }
+    } catch (error) {
+      console.error('Error refreshing notes:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, onRefresh]);
+
+  const renderItem = useCallback(({ item }) => (
+    <NoteItem
+      item={item}
       onPress={() => router.push({
         pathname: '/note/display/[id]',
         params: { id: item.id }
       })}
-      onLongPress={() => confirmDelete(item.id)} // Long press to delete
-    >
-      <View style={styles.noteContent}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>{item.title || 'Untitled'}</Text>
-          {item.isPriority && (
-            <IconButton
-              icon="star"
-              size={20}
-              color="#ff4444"
-              style={styles.priorityIcon}
-            />
-          )}
-        </View>
-        
-        {item.image && (
-          <Image 
-            source={{ uri: item.image }} 
-            style={styles.noteImage}
-            resizeMode="cover"
-          />
-        )}
-        
-        <Text style={styles.preview} numberOfLines={2}>
-          {item.content || 'No content'}
-        </Text>
-        
-        <View style={styles.noteFooter}>
-          {item.category && (
-            <Text style={styles.category}>{item.category}</Text>
-          )}
-          <Text style={styles.date}>
-            {formatDate(item.createdAt)}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      onLongPress={() => confirmDelete(item.id)}
+      formatDate={formatDate}
+    />
+  ), [router, confirmDelete, formatDate]);
+
+  const keyExtractor = useCallback((item) => item.id, []);
 
   return (
     <FlatList
       data={noteList}
       renderItem={renderItem}
-      keyExtractor={item => item.id}
+      keyExtractor={keyExtractor}
       style={styles.container}
-      onRefresh={onRefresh}
-      refreshing={false}
+      onRefresh={handleRefresh}
+      refreshing={isRefreshing}
       contentContainerStyle={styles.listContent}
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      initialNumToRender={10}
+      maintainVisibleContentPosition={{
+        minIndexForVisible: 0,
+        autoscrollToTopThreshold: 10,
+      }}
+      extraData={noteList.length} // Only re-render when list length changes
     />
   );
 };
@@ -170,4 +212,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NoteList;
+export default memo(NoteList);
